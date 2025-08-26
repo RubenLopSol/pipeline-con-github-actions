@@ -1,0 +1,43 @@
+name: Despliegue local de la-huella
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-run:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Build de la imagen Docker
+        run: |
+          docker build -t la-huella-test . > /dev/null 2>&1 \
+            && echo " Docker build exitoso" \
+            || echo " Docker build falló"
+
+      - name: Eliminar contenedor anterior si existe
+        run: |
+          docker rm -f test-container > /dev/null 2>&1 || true
+
+      - name: Lanzar contenedor
+        run: |
+          docker run -d --name test-container -p 3001:3000 la-huella-test > /dev/null 2>&1 \
+            && echo " Contenedor iniciado" \
+            || echo " Contenedor falló"
+
+      - name: Validar despliegue
+        run: |
+          sleep 3
+          if curl -fsS http://localhost:3001/ > /dev/null; then
+            echo " Aplicación responde correctamente"
+          else
+            echo " Fallo en la validación de la app"
+            exit 1
+          fi
+
+      - name: Mostrar estado del contenedor
+        run: |
+          docker ps --filter "name=test-container" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -v NAMES
